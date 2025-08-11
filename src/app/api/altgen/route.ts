@@ -1,8 +1,10 @@
-import { google } from '@ai-sdk/google';
-import { generateText } from 'ai';
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { s3Client } from "@/lib/upload";
+import { google } from "@ai-sdk/google";
+import { DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { generateText } from "ai";
+import { NextRequest, NextResponse } from "next/server";
 
 const systemPrompt = `
 Task: Create alt text for the provided image.
@@ -17,91 +19,115 @@ Strict Requirements:
    - Cannot determine content → Output: [unclear image]
 
 Format: Single complete sentence ending with one period.
-
-Input image:
-`
+`;
 
 export async function POST(request: NextRequest) {
   try {
-    const startTime = Date.now();
-    const formData = await request.formData();
-    const image = formData.get('image') as File;
+    // Check authentication
+    const session = await auth.api.getSession({
+      headers: request.headers
+    });
 
-    if (!image) {
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { imageUrl } = body;
+
+    if (!imageUrl) {
+      return NextResponse.json({ error: "No image URL provided" }, { status: 400 });
+    }
+
+    // Extract file extension and determine MIME type
+    const url = new URL(imageUrl);
+    const pathname = url.pathname;
+    const ext = pathname.split(".").pop()?.toLowerCase();
+
+    const mimeTypeMap: Record<string, string> = {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp"
+    };
+
+    const imageMimeType = mimeTypeMap[ext || ""];
+
+    if (!imageMimeType) {
       return NextResponse.json(
-        { error: 'No image file provided' },
+        { error: "Invalid image type. Supported types: JPEG, PNG, JPG, WEBP" },
         { status: 400 }
       );
     }
 
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-    if (!allowedTypes.includes(image.type)) {
-      return NextResponse.json(
-        { error: 'Invalid image type. Supported types: JPEG, PNG' },
-        { status: 400 }
-      );
+    try {
+      // Generate alt text using AI
+      const { text } = await generateText({
+        model: google("gemini-2.5-flash-lite"),
+        system: systemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Generate alt text for this image"
+              },
+              {
+                type: "file",
+                data: imageUrl,
+                mediaType: imageMimeType
+              }
+            ]
+          }
+        ],
+        providerOptions: {
+          google: {
+            thinkingConfig: {
+              thinkingBudget: 0
+            }
+          }
+        }
+      });
+
+      // Save to database with user relationship
+      await prisma.altTextGeneration.create({
+        data: {
+          userId: session.user.id,
+          imageUrl,
+          altText: text
+        }
+      });
+
+      return NextResponse.json({
+        altText: text
+      });
+
+    } catch (error) {
+      // If alt text generation fails, delete the uploaded image from R2
+      console.error("Error generating alt text, cleaning up uploaded image:", error);
+
+      try {
+        // Extract the key from the URL
+        const url = new URL(imageUrl);
+        const key = url.pathname.substring(1); // Remove leading slash
+
+        await s3Client.send(
+          new DeleteObjectCommand({
+            Bucket: process.env.R2_BUCKET_NAME as string,
+            Key: key
+          })
+        );
+
+        console.log("Successfully deleted image from R2:", key);
+      } catch (deleteError) {
+        console.error("Failed to delete image from R2:", deleteError);
+      }
+
+      throw error;
     }
-
-    const bytes = await image.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString('base64');
-    
-    // Calculate image hash for duplicate detection
-    const imageHash = crypto.createHash('sha256').update(buffer).digest('hex');
-
-    const { text } = await generateText({
-      model: google('gemini-2.0-flash-exp'),
-      system: systemPrompt,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: 'Generate alt text for this image',
-            },
-            {
-              type: 'file',
-              data: base64,
-              mediaType: image.type,
-            },
-          ],
-        },
-      ],
-      providerOptions: {
-        google: {
-          thinkingConfig: {
-            thinkingBudget: 0,
-          },
-        },
-      },
-    });
-
-    const processingTimeMs = Date.now() - startTime;
-
-    // Save to database with image data
-    const generation = await prisma.altTextGeneration.create({
-      data: {
-        imageName: image.name,
-        imageSize: image.size,
-        imageMimeType: image.type,
-        imageHash,
-        imageData: `data:${image.type};base64,${base64}`, // Store as data URL for easy display
-        altText: text,
-        processingTimeMs,
-      },
-    });
-
-    return NextResponse.json({ 
-      altText: text,
-      id: generation.id,
-      processingTimeMs 
-    });
   } catch (error) {
-    console.error('Error generating alt text:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate alt text' },
-      { status: 500 }
-    );
+    console.error("Error in alt text generation:", error);
+    return NextResponse.json({ error: "Failed to generate alt text" }, { status: 500 });
   }
 }

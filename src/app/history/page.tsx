@@ -7,12 +7,8 @@ import { Card } from "@/components/ui/card";
 
 interface HistoryItem {
   id: string;
-  imageName: string | null;
-  imageSize: number | null;
-  imageMimeType: string;
-  imageData: string;
+  imageUrl: string;
   altText: string;
-  processingTimeMs: number | null;
   createdAt: string;
 }
 
@@ -39,45 +35,40 @@ export default function History() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 py-12">
+    <div className="min-h-screen bg-background py-12">
       <div className="w-full max-w-4xl mx-auto px-6">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-medium text-neutral-900 dark:text-neutral-100 tracking-tight">
+            <h1 className="text-2xl font-medium tracking-tight">
               History
             </h1>
-            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               Your generated alt texts
             </p>
           </div>
           <Link href="/">
-            <Button
-              variant="outline"
-              className="border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-900"
-            >
+            <Button variant="outline">
               Back to Generator
             </Button>
           </Link>
         </div>
 
         {loading ? (
-          <Card className="border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <Card className="shadow-sm">
             <div className="p-12 text-center">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="text-sm text-muted-foreground">
                 Loading history...
               </p>
             </div>
           </Card>
         ) : history.length === 0 ? (
-          <Card className="border-neutral-200 dark:border-neutral-800 shadow-sm">
+          <Card className="shadow-sm">
             <div className="p-12 text-center">
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">
+              <p className="text-sm text-muted-foreground">
                 Generate an alt text to see history
               </p>
               <Link href="/">
-                <Button
-                  className="mt-4 bg-neutral-900 hover:bg-neutral-800 dark:bg-neutral-100 dark:hover:bg-neutral-200 text-white dark:text-neutral-900"
-                >
+                <Button className="mt-4">
                   Generate Your First Alt Text
                 </Button>
               </Link>
@@ -88,32 +79,22 @@ export default function History() {
             {history.map((item) => (
               <Card
                 key={item.id}
-                className="border-neutral-200 dark:border-neutral-800 shadow-sm hover:shadow-md transition-shadow"
+                className="shadow-sm hover:shadow-md transition-shadow"
               >
                 <div className="p-4 flex gap-4">
                   <div className="flex-shrink-0">
                     <img
-                      src={item.imageData}
+                      src={item.imageUrl}
                       alt={item.altText}
-                      className="w-24 h-24 object-cover rounded-lg bg-neutral-100 dark:bg-neutral-900"
+                      className="w-24 h-24 object-cover rounded-lg bg-muted"
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base text-neutral-900 dark:text-neutral-100 font-medium mb-2">
+                    <p className="text-base font-medium mb-2">
                       {item.altText}
                     </p>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
-                      <span>{item.imageName || "Unnamed image"}</span>
-                      <span>•</span>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                       <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-                      <span>•</span>
-                      <span>{item.processingTimeMs}ms</span>
-                      {item.imageSize && (
-                        <>
-                          <span>•</span>
-                          <span>{(item.imageSize / 1024).toFixed(1)}KB</span>
-                        </>
-                      )}
                     </div>
                   </div>
                 </div>

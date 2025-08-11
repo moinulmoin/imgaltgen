@@ -1,8 +1,12 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -11,26 +15,81 @@ datasource db {
 }
 
 // Simple alt text generation history
+
 model AltTextGeneration {
-  id            String   @id @default(cuid())
-  
-  // Image information
-  imageName     String?  // original filename
-  imageSize     Int?     // file size in bytes
-  imageMimeType String   // image/jpeg or image/png
-  imageHash     String   // SHA-256 hash to detect duplicates
-  imageData     String   @db.Text // base64 encoded image for thumbnails
-  
-  // Generated content
-  altText       String   // the generated alt text
-  
-  // Processing metrics
-  processingTimeMs Int?  // processing time in milliseconds
-  
-  // Timestamps
-  createdAt     DateTime @default(now())
-  
-  @@index([imageHash]) // for duplicate detection
-  @@index([createdAt]) // for sorting by date
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  imageUrl String
+
+  altText String // the generated alt text
+  createdAt DateTime @default(now())
+
+  // Indexes
+  @@index([userId])
+  @@index([createdAt])
   @@map("alt_text_generations")
+}
+
+model User {
+  id                String              @id
+  name              String
+  email             String
+  emailVerified     Boolean
+  image             String?
+  createdAt         DateTime
+  updatedAt         DateTime
+  sessions          Session[]
+  accounts          Account[]
+  altTextGenerations AltTextGeneration[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime
+  updatedAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime
+  updatedAt             DateTime
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime?
+  updatedAt  DateTime?
+
+  @@map("verification")
 }
