@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Simple alt text generation history
+model AltTextGeneration {
+  id            String   @id @default(cuid())
+  
+  // Image information
+  imageName     String?  // original filename
+  imageSize     Int?     // file size in bytes
+  imageMimeType String   // image/jpeg or image/png
+  imageHash     String   // SHA-256 hash to detect duplicates
+  imageData     String   @db.Text // base64 encoded image for thumbnails
+  
+  // Generated content
+  altText       String   // the generated alt text
+  
+  // Processing metrics
+  processingTimeMs Int?  // processing time in milliseconds
+  
+  // Timestamps
+  createdAt     DateTime @default(now())
+  
+  @@index([imageHash]) // for duplicate detection
+  @@index([createdAt]) // for sorting by date
+  @@map("alt_text_generations")
+}
