@@ -96,7 +96,16 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto">
-        <nav className="flex justify-end p-4">
+        <nav className="flex justify-between p-4">
+          <Link href="/" className="font-bold">
+            ImgAltGen
+          </Link>
+
+          <Link href="/history" className=" hover:underline underline-offset-4">
+            History
+          </Link>
+
+
           <Link href="/login" className={buttonVariants({ variant: "default" })}>
             Login
           </Link>
@@ -151,8 +160,8 @@ export default function Home() {
                   </label>
                 ) : (
                   <div className="space-y-4">
-                    <div className="relative rounded-lg overflow-hidden bg-muted">
-                      <img src={preview} alt="Preview" className="w-full h-64 object-contain" />
+                    <div className="relative">
+                      <img src={preview} alt="Preview" className="w-full aspect-auto object-contain rounded-lg " />
                       {(isPending || generatingAlt) && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                           <div className="text-center">
