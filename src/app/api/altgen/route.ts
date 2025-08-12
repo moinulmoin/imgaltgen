@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { checkCredits, consumeCredit } from "@/lib/ratelimit";
 import { s3Client } from "@/lib/upload";
 import { google } from "@ai-sdk/google";
 import { DeleteObjectCommand } from "@aws-sdk/client-s3";
@@ -30,6 +31,18 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if user has credits
+    const creditCheck = await checkCredits(session.user.id);
+    
+    if (!creditCheck.hasCredits) {
+      return NextResponse.json({ 
+        error: "Daily credit limit reached", 
+        remaining: creditCheck.remaining,
+        reset: creditCheck.reset,
+        resetDate: creditCheck.resetDate
+      }, { status: 429 });
     }
 
     const body = await request.json();
@@ -90,6 +103,17 @@ export async function POST(request: NextRequest) {
         }
       });
 
+      // Only consume credit after successful generation
+      const creditConsumed = await consumeCredit(session.user.id);
+      
+      if (!creditConsumed.success) {
+        // This shouldn't happen since we checked earlier, but handle it just in case
+        return NextResponse.json({ 
+          error: "Failed to consume credit", 
+          altText: text // Still return the alt text since it was generated
+        }, { status: 500 });
+      }
+
       // Save to database with user relationship
       await prisma.altTextGeneration.create({
         data: {
@@ -100,7 +124,8 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json({
-        altText: text
+        altText: text,
+        creditsRemaining: creditConsumed.remaining
       });
 
     } catch (error) {
