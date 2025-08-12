@@ -1,11 +1,11 @@
 "use client";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigationWarning } from "@/hooks/useNavigationWarning";
 import { useUploadFile } from "better-upload/client";
-import Link from "next/link";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export default function Home() {
   const [preview, setPreview] = useState<string>("");
@@ -94,24 +94,8 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto">
-        <nav className="flex justify-between p-4">
-          <Link href="/" className="font-bold">
-            ImgAltGen
-          </Link>
-
-          <Link href="/history" className=" hover:underline underline-offset-4">
-            History
-          </Link>
-
-
-          <Link href="/login" className={buttonVariants({ variant: "default" })}>
-            Login
-          </Link>
-        </nav>
-        <div className="flex items-center justify-center min-h-screen py-12">
-          <div className="w-full max-w-md px-6">
+    <div className="flex items-center justify-center min-h-screen py-12">
+      <div className="w-full max-w-md px-6">
             <div className="flex justify-between items-center mb-8">
               <div>
                 <h1 className="text-2xl font-medium tracking-tight">Alt Text Generator</h1>
@@ -225,6 +209,7 @@ export default function Home() {
                         <Button
                           onClick={() => {
                             navigator.clipboard.writeText(altText);
+                            toast.success("Alt text copied!");
                           }}
                           className="flex-1"
                         >
@@ -238,7 +223,5 @@ export default function Home() {
             </Card>
           </div>
         </div>
-      </div>
-    </div>
   );
 }
