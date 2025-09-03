@@ -16,9 +16,11 @@ export function Navbar({ isUserLoggedIn }: NavbarProps) {
         ImgAltGen
       </Link>
 
-      <Link href="/history" className="hover:underline underline-offset-4">
-        History
-      </Link>
+      {isUserLoggedIn && (
+        <Link href="/history" className="hover:underline underline-offset-4">
+          History
+        </Link>
+      )}
 
       {isUserLoggedIn ? (
         <LogoutButton />
